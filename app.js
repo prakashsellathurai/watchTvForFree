@@ -75,7 +75,8 @@ function processData(channels, streams) {
 
     for (const stream of streams) {
         // Skip if no channel ID or if we already have this channel (simple deduplication)
-        if (!stream.channel || seenChannels.has(stream.channel)) continue;
+        // Also skip non-HTTPS streams to prevent Mixed Content errors
+        if (!stream.channel || seenChannels.has(stream.channel) || !stream.url.startsWith('https://')) continue;
 
         const channel = channelsMap.get(stream.channel);
         if (channel) {
@@ -91,7 +92,7 @@ function processData(channels, streams) {
 
     state.channels = playableChannels;
     state.filteredChannels = playableChannels;
-    
+
     // Sort alphabetically by name
     state.channels.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -187,7 +188,7 @@ function applyFilters() {
 
 function renderGrid() {
     elements.grid.innerHTML = '';
-    
+
     const { currentPage, itemsPerPage } = state.pagination;
     const start = (currentPage - 1) * itemsPerPage;
     const end = start + itemsPerPage;
@@ -204,12 +205,12 @@ function renderGrid() {
         card.className = 'channel-card';
         card.onclick = () => openPlayer(channel);
 
-        const logo = channel.logo 
+        const logo = channel.logo
             ? `<img src="${channel.logo}" alt="${channel.name}" class="channel-logo" loading="lazy" onerror="this.classList.add('placeholder'); this.src=''; this.innerHTML='📺'">`
             : `<div class="channel-logo placeholder">📺</div>`;
 
-        const category = channel.categories && channel.categories.length > 0 
-            ? channel.categories[0] 
+        const category = channel.categories && channel.categories.length > 0
+            ? channel.categories[0]
             : 'General';
 
         card.innerHTML = `
