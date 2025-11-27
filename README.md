@@ -1,4 +1,4 @@
-# watchTV forfree
+# InterDimensionalCable
 
 A simple, static web application to browse and stream IPTV channels directly in your browser. Powered by [iptv-org](https://github.com/iptv-org/iptv).
 
