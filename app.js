@@ -1,15 +1,16 @@
 const API_BASE = 'https://iptv-org.github.io/api';
 
 const state = {
-    channels: [], // All playable channels
-    filteredChannels: [], // Channels matching current filters
+    channels: [],
+    filteredChannels: [],
     regions: [],
     categories: [],
-    countries: {}, // Map country code -> region code (or just use regions data)
+    favorites: new Set(JSON.parse(localStorage.getItem('favorites') || '[]')),
     filters: {
         search: '',
         region: 'all',
-        category: 'all'
+        category: 'all',
+        showFavoritesOnly: false
     },
     pagination: {
         currentPage: 1,
@@ -17,13 +18,14 @@ const state = {
     }
 };
 
-// DOM Elements
 const elements = {
     grid: document.getElementById('channel-grid'),
     regionSelect: document.getElementById('region-select'),
     typeSelect: document.getElementById('type-select'),
     searchInput: document.getElementById('search'),
     channelCount: document.getElementById('channel-count'),
+    favoritesCount: document.getElementById('favorites-count'),
+    favoritesToggle: document.getElementById('favorites-toggle'),
     prevBtn: document.getElementById('prev-page'),
     nextBtn: document.getElementById('next-page'),
     pageInfo: document.getElementById('page-info'),
@@ -34,14 +36,29 @@ const elements = {
     modalMeta: document.getElementById('player-channel-meta')
 };
 
-// HLS Instance
 let hls = null;
+
+function toggleFavorite(channelId) {
+    if (state.favorites.has(channelId)) {
+        state.favorites.delete(channelId);
+    } else {
+        state.favorites.add(channelId);
+    }
+    localStorage.setItem('favorites', JSON.stringify([...state.favorites]));
+    updateFavoritesCount();
+    applyFilters();
+}
+
+function updateFavoritesCount() {
+    elements.favoritesCount.textContent = `${state.favorites.size} favorites`;
+}
 
 async function init() {
     try {
         await fetchData();
         setupFilters();
         setupEventListeners();
+        updateFavoritesCount();
         applyFilters();
     } catch (error) {
         console.error('Initialization failed:', error);
@@ -66,16 +83,11 @@ async function fetchData() {
 }
 
 function processData(channels, streams) {
-    // Create a map of channels for O(1) lookup
     const channelsMap = new Map(channels.map(c => [c.id, c]));
-
-    // Process streams and link to channels
     const playableChannels = [];
     const seenChannels = new Set();
 
     for (const stream of streams) {
-        // Skip if no channel ID or if we already have this channel (simple deduplication)
-        // Also skip non-HTTPS streams to prevent Mixed Content errors
         if (!stream.channel || seenChannels.has(stream.channel) || !stream.url.startsWith('https://')) continue;
 
         const channel = channelsMap.get(stream.channel);
@@ -92,13 +104,10 @@ function processData(channels, streams) {
 
     state.channels = playableChannels;
     state.filteredChannels = playableChannels;
-
-    // Sort alphabetically by name
     state.channels.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function setupFilters() {
-    // Populate Regions
     state.regions.forEach(region => {
         const option = document.createElement('option');
         option.value = region.code;
@@ -106,7 +115,6 @@ function setupFilters() {
         elements.regionSelect.appendChild(option);
     });
 
-    // Populate Categories
     state.categories.sort((a, b) => a.name.localeCompare(b.name)).forEach(category => {
         const option = document.createElement('option');
         option.value = category.id;
@@ -134,6 +142,16 @@ function setupEventListeners() {
         applyFilters();
     });
 
+    elements.favoritesToggle.addEventListener('click', () => {
+        state.filters.showFavoritesOnly = !state.filters.showFavoritesOnly;
+        elements.favoritesToggle.textContent = state.filters.showFavoritesOnly
+            ? '⭐ Show All Channels'
+            : '⭐ Show Favorites Only';
+        elements.favoritesToggle.classList.toggle('active', state.filters.showFavoritesOnly);
+        state.pagination.currentPage = 1;
+        applyFilters();
+    });
+
     elements.prevBtn.addEventListener('click', () => {
         if (state.pagination.currentPage > 1) {
             state.pagination.currentPage--;
@@ -156,9 +174,8 @@ function setupEventListeners() {
 }
 
 function applyFilters() {
-    const { search, region, category } = state.filters;
+    const { search, region, category, showFavoritesOnly } = state.filters;
 
-    // Helper to get countries for a region
     let regionCountries = null;
     if (region !== 'all') {
         const regionData = state.regions.find(r => r.code === region);
@@ -166,19 +183,10 @@ function applyFilters() {
     }
 
     state.filteredChannels = state.channels.filter(channel => {
-        // Search Filter
+        if (showFavoritesOnly && !state.favorites.has(channel.id)) return false;
         if (search && !channel.name.toLowerCase().includes(search)) return false;
-
-        // Region Filter
-        if (region !== 'all' && regionCountries) {
-            if (!regionCountries.has(channel.country)) return false;
-        }
-
-        // Category Filter
-        if (category !== 'all') {
-            if (!channel.categories || !channel.categories.includes(category)) return false;
-        }
-
+        if (region !== 'all' && regionCountries && !regionCountries.has(channel.country)) return false;
+        if (category !== 'all' && (!channel.categories || !channel.categories.includes(category))) return false;
         return true;
     });
 
@@ -203,7 +211,8 @@ function renderGrid() {
     pageItems.forEach(channel => {
         const card = document.createElement('div');
         card.className = 'channel-card';
-        card.onclick = () => openPlayer(channel);
+
+        const isFavorite = state.favorites.has(channel.id);
 
         const logo = channel.logo
             ? `<img src="${channel.logo}" alt="${channel.name}" class="channel-logo" loading="lazy" onerror="this.classList.add('placeholder'); this.src=''; this.innerHTML='📺'">`
@@ -214,10 +223,25 @@ function renderGrid() {
             : 'General';
 
         card.innerHTML = `
+            <button class="favorite-btn ${isFavorite ? 'active' : ''}" data-channel-id="${channel.id}">
+                ${isFavorite ? '⭐' : '☆'}
+            </button>
             ${logo}
             <div class="channel-name" title="${channel.name}">${channel.name}</div>
             <div class="channel-category">${category}</div>
         `;
+
+        card.addEventListener('click', (e) => {
+            if (!e.target.closest('.favorite-btn')) {
+                openPlayer(channel);
+            }
+        });
+
+        const favoriteBtn = card.querySelector('.favorite-btn');
+        favoriteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleFavorite(channel.id);
+        });
 
         elements.grid.appendChild(card);
     });
@@ -278,10 +302,9 @@ function openPlayer(channel) {
                 elements.video.play().catch(e => console.log('Auto-play prevented:', e));
             });
 
-            // Native HLS error handling is limited, but we can try to catch generic errors
             elements.video.onerror = () => {
                 if (retryWithProxy) {
-                    console.log('Native playback failed, retrying with proxy (might not work for native HLS)...');
+                    console.log('Native playback failed, retrying with proxy...');
                     elements.video.src = `https://corsproxy.io/?${encodeURIComponent(channel.streamUrl)}`;
                 }
             };
@@ -303,5 +326,4 @@ function closePlayer() {
     }
 }
 
-// Start the app
 init();

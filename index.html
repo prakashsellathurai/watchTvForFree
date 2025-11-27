@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 
@@ -39,15 +39,21 @@
                     </select>
                 </div>
 
+                <div class="filter-group">
+                    <button id="favorites-toggle" class="favorites-btn">
+                        ⭐ Show Favorites Only
+                    </button>
+                </div>
+
                 <div class="stats">
                     <small id="channel-count">Loading channels...</small>
+                    <small id="favorites-count">0 favorites</small>
                 </div>
             </div>
         </aside>
 
         <main class="main-content">
             <div id="channel-grid" class="channel-grid">
-                <!-- Channels will be inserted here -->
                 <div class="loading-state">
                     <div class="spinner"></div>
                     <p>Loading Channel Data...</p>
