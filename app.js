@@ -60,6 +60,12 @@ async function init() {
         await detectAndSetRegion();
         setupEventListeners();
         updateFavoritesCount();
+        // Auto-enable favorites view if any favorites are saved
+        if (state.favorites.size > 0) {
+            state.filters.showFavoritesOnly = true;
+            elements.favoritesToggle.textContent = '⭐ Show All Channels';
+            elements.favoritesToggle.classList.add('active');
+        }
         applyFilters();
     } catch (error) {
         console.error('Initialization failed:', error);
