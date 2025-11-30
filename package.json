@@ -1,0 +1,24 @@
+{
+  "name": "watchtvforfree",
+  "version": "1.0.0",
+  "description": "A simple, static web application to browse and stream IPTV channels directly in your browser. Powered by [iptv-org](https://github.com/iptv-org/iptv).",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/prakashsellathurai/watchTvForFree.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/prakashsellathurai/watchTvForFree/issues"
+  },
+  "homepage": "https://github.com/prakashsellathurai/watchTvForFree#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}
