@@ -33,7 +33,8 @@ const elements = {
     video: document.getElementById('video-player'),
     closeModal: document.querySelector('.close-modal'),
     modalTitle: document.getElementById('player-channel-name'),
-    modalMeta: document.getElementById('player-channel-meta')
+    modalMeta: document.getElementById('player-channel-meta'),
+    playerLoader: document.getElementById('player-loader')
 };
 
 let hls = null;
@@ -297,7 +298,20 @@ function openPlayer(channel) {
             if (hls) {
                 hls.destroy();
             }
-            hls = new Hls();
+            hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+                backBufferLength: 30,
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+                capLevelToPlayerSize: true, // Optimizes GPU usage by not decoding > video size
+                startLevel: -1, // Auto start level
+                startFragPrefetch: true, // Start loading immediately
+            });
+
+            // Show loader when starting
+            elements.playerLoader.classList.remove('hidden');
+
             hls.loadSource(url);
             hls.attachMedia(elements.video);
 
@@ -305,25 +319,40 @@ function openPlayer(channel) {
                 elements.video.play().catch(e => console.log('Auto-play prevented:', e));
             });
 
+            hls.on(Hls.Events.FRAG_BUFFERED, () => {
+                elements.playerLoader.classList.add('hidden');
+            });
+
+            hls.on(Hls.Events.BUFFER_STALLED, () => {
+                elements.playerLoader.classList.remove('hidden');
+            });
+
+            elements.video.addEventListener('playing', () => {
+                elements.playerLoader.classList.add('hidden');
+            });
+
+            elements.video.addEventListener('waiting', () => {
+                elements.playerLoader.classList.remove('hidden');
+            });
+
             hls.on(Hls.Events.ERROR, function (event, data) {
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
                             console.log('fatal network error encountered, try to recover');
-                            if (retryWithProxy) {
-                                console.log('Retrying with CORS proxy...');
-                                hls.destroy();
-                                playStream(`https://corsproxy.io/?${encodeURIComponent(channel.streamUrl)}`, false);
-                            } else {
-                                hls.startLoad();
-                            }
+                            hls.startLoad();
                             break;
                         case Hls.ErrorTypes.MEDIA_ERROR:
                             console.log('fatal media error encountered, try to recover');
                             hls.recoverMediaError();
                             break;
                         default:
+                            console.log('fatal error, cannot recover');
                             hls.destroy();
+                            if (retryWithProxy) {
+                                console.log('Retrying with CORS proxy...');
+                                playStream(`https://corsproxy.io/?${encodeURIComponent(channel.streamUrl)}`, false);
+                            }
                             break;
                     }
                 }
@@ -350,6 +379,7 @@ function openPlayer(channel) {
 
 function closePlayer() {
     elements.modal.classList.add('hidden');
+    elements.playerLoader.classList.add('hidden');
     elements.video.pause();
     elements.video.src = '';
     if (hls) {
