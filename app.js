@@ -100,23 +100,34 @@ async function detectAndSetRegion() {
 }
 
 async function fetchData() {
-    const [channelsRes, streamsRes, regionsRes, categoriesRes] = await Promise.all([
+    const [channelsRes, streamsRes, regionsRes, categoriesRes, logosRes] = await Promise.all([
         fetch(`${API_BASE}/channels.json`),
         fetch(`${API_BASE}/streams.json`),
         fetch(`${API_BASE}/regions.json`),
-        fetch(`${API_BASE}/categories.json`)
+        fetch(`${API_BASE}/categories.json`),
+        fetch(`${API_BASE}/logos.json`)
     ]);
 
     const channelsData = await channelsRes.json();
     const streamsData = await streamsRes.json();
+    const logosData = await logosRes.json();
     state.regions = await regionsRes.json();
     state.categories = await categoriesRes.json();
 
-    processData(channelsData, streamsData);
+    processData(channelsData, streamsData, logosData);
 }
 
-function processData(channels, streams) {
+function processData(channels, streams, logos) {
     const channelsMap = new Map(channels.map(c => [c.id, c]));
+
+    // Create a map of channel logos, prioritizing horizontal logos for better card display
+    const logosMap = new Map();
+    logos.forEach(logo => {
+        if (!logosMap.has(logo.channel) || logo.tags?.includes('horizontal')) {
+            logosMap.set(logo.channel, logo.url);
+        }
+    });
+
     const playableChannels = [];
     const seenChannels = new Set();
 
@@ -125,8 +136,10 @@ function processData(channels, streams) {
 
         const channel = channelsMap.get(stream.channel);
         if (channel) {
+            const thumbnail = logosMap.get(stream.channel);
             playableChannels.push({
                 ...channel,
+                thumbnail: thumbnail || channel.logo, // Use thumbnail from logos API, fallback to channel logo
                 streamUrl: stream.url,
                 streamUserAgent: stream.user_agent,
                 streamReferrer: stream.referrer
@@ -247,8 +260,8 @@ function renderGrid() {
 
         const isFavorite = state.favorites.has(channel.id);
 
-        const logo = channel.logo
-            ? `<img src="${channel.logo}" alt="${channel.name}" class="channel-logo" loading="lazy" onerror="this.classList.add('placeholder'); this.src=''; this.innerHTML='📺'">`
+        const logo = channel.thumbnail
+            ? `<img src="${channel.thumbnail}" alt="${channel.name}" class="channel-logo" loading="lazy" onerror="this.classList.add('placeholder'); this.src=''; this.innerHTML='📺'">`
             : `<div class="channel-logo placeholder">📺</div>`;
 
         const category = channel.categories && channel.categories.length > 0
@@ -283,7 +296,7 @@ function renderGrid() {
 }
 
 function updatePagination(totalPages) {
-    elements.pageInfo.textContent = `Page ${state.pagination.currentPage} of ${totalPages || 1}`;
+    elements.pageInfo.textContent = `Page ${state.pagination.currentPage} of ${totalPages || 1} `;
     elements.prevBtn.disabled = state.pagination.currentPage === 1;
     elements.nextBtn.disabled = state.pagination.currentPage >= totalPages || totalPages === 0;
 }
@@ -291,7 +304,7 @@ function updatePagination(totalPages) {
 function openPlayer(channel) {
     elements.modal.classList.remove('hidden');
     elements.modalTitle.textContent = channel.name;
-    elements.modalMeta.textContent = `${channel.categories?.[0] || 'General'} • ${channel.country}`;
+    elements.modalMeta.textContent = `${channel.categories?.[0] || 'General'} • ${channel.country} `;
 
     const playStream = (url, retryWithProxy = true) => {
         if (Hls.isSupported()) {
