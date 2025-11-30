@@ -1,5 +1,8 @@
 # InterDimensionalCable
 
+[![Tests](https://github.com/prakashsellathurai/InterDimensionalCable/actions/workflows/test.yml/badge.svg)](https://github.com/prakashsellathurai/InterDimensionalCable/actions/workflows/test.yml)
+
+
 A simple, static web application to browse and stream IPTV channels directly in your browser. Powered by [iptv-org](https://github.com/iptv-org/iptv).
 
 ## Features
