@@ -337,13 +337,15 @@ select option {
     display: flex;
     justify-content: center;
     align-items: center;
-    opacity: 1;
-    transition: opacity 0.3s;
+    visibility: visible;
+    transition: opacity 0.3s, visibility 0s;
 }
 
 .modal.hidden {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
+    transition: opacity 0.3s, visibility 0s linear 0.3s;
 }
 
 .modal-content {
